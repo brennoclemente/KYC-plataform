@@ -30,8 +30,15 @@ export class PrismaInviteCodeRepository implements IInviteCodeRepository {
     });
   }
 
+  async reactivate(id: string): Promise<void> {
+    await prisma.inviteCode.update({
+      where: { id },
+      data: { isUsed: false, usedByUserId: null, usedAt: null },
+    });
+  }
+
   async listAll(): Promise<InviteCode[]> {
-    const invites = await prisma.inviteCode.findMany();
+    const invites = await prisma.inviteCode.findMany({ orderBy: { createdAt: 'desc' } });
     return invites as InviteCode[];
   }
 }
