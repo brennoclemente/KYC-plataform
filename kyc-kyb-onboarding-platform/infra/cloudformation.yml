@@ -1,0 +1,245 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  KYC/KYB Onboarding Platform — Full infrastructure stack.
+  Provisions EC2, S3, IAM Role/Policy and Security Group.
+
+Parameters:
+
+  AppDomain:
+    Type: String
+    Description: "Domínio público (ex: app.empresa.com)"
+
+  CertbotEmail:
+    Type: String
+    Description: "E-mail para notificações do Let's Encrypt"
+
+  RepoUrl:
+    Type: String
+    Description: "URL HTTPS do repositório Git"
+
+  RepoBranch:
+    Type: String
+    Default: "main"
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 12
+    Description: "Senha do PostgreSQL (mín. 12 caracteres)"
+
+  NextAuthSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: "Secret JWT do NextAuth (mín. 32 chars)"
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.micro, t3.small, t3.medium, t3.large]
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: "EC2 Key Pair para acesso SSH"
+
+  AwsRegion:
+    Type: String
+    Default: us-east-1
+
+Resources:
+
+  # ── S3 Bucket ─────────────────────────────────────────────────────────────
+  DocumentsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "kyc-kyb-docs-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Project
+          Value: kyc-kyb-platform
+
+  # ── IAM Role ──────────────────────────────────────────────────────────────
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "kyc-kyb-ec2-role-${AWS::StackName}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: KycKybAppPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: S3Access
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                Resource: !Sub "arn:aws:s3:::kyc-kyb-docs-${AWS::AccountId}/*"
+              - Sid: TextractAccess
+                Effect: Allow
+                Action:
+                  - textract:StartDocumentAnalysis
+                  - textract:GetDocumentAnalysis
+                Resource: "*"
+      Tags:
+        - Key: Project
+          Value: kyc-kyb-platform
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2Role
+
+  # ── Security Group ────────────────────────────────────────────────────────
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "KYC/KYB — SSH, HTTP, HTTPS"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Project
+          Value: kyc-kyb-platform
+
+  # ── EC2 Instance ──────────────────────────────────────────────────────────
+  AppInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroups:
+        - !Ref AppSecurityGroup
+      ImageId: !Sub "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: kyc-kyb-platform
+        - Key: Project
+          Value: kyc-kyb-platform
+      UserData:
+        # IMPORTANT: CloudFormation !Sub replaces ${Param} with parameter values.
+        # To write a literal shell variable like $VAR, use ${!VAR}.
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -euo pipefail
+            exec > >(tee /var/log/kyc-kyb-bootstrap.log) 2>&1
+
+            log() { echo "[$(date '+%H:%M:%S')] $*"; }
+
+            log "=== KYC/KYB Bootstrap started ==="
+
+            # 1. System update
+            log "[1/7] System update..."
+            dnf update -y
+
+            # 2. Docker + Git
+            log "[2/7] Installing Docker and Git..."
+            dnf install -y docker git
+            systemctl enable --now docker
+            usermod -aG docker ec2-user
+
+            # 3. Docker Compose v2
+            log "[3/7] Installing Docker Compose..."
+            COMPOSE_VER=$(curl -fsSL https://api.github.com/repos/docker/compose/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+            curl -fsSL "https://github.com/docker/compose/releases/download/${!COMPOSE_VER}/docker-compose-linux-x86_64" \
+              -o /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+
+            # 4. Clone repo
+            log "[4/7] Cloning repository..."
+            git clone --branch ${RepoBranch} ${RepoUrl} /opt/kyc-kyb
+            cd /opt/kyc-kyb/kyc-kyb-onboarding-platform
+
+            # 5. Write .env (no quotes around ENVEOF so variables are expanded)
+            log "[5/7] Writing .env..."
+            cat > .env << ENVEOF
+            DOMAIN=${AppDomain}
+            CERTBOT_EMAIL=${CertbotEmail}
+            POSTGRES_USER=kyc_user
+            POSTGRES_PASSWORD=${DBPassword}
+            POSTGRES_DB=kyc_kyb_db
+            DATABASE_URL=postgresql://kyc_user:${DBPassword}@db:5432/kyc_kyb_db
+            AWS_ACCESS_KEY_ID=
+            AWS_SECRET_ACCESS_KEY=
+            AWS_REGION=${AwsRegion}
+            S3_BUCKET_NAME=${BucketName}
+            NEXTAUTH_SECRET=${NextAuthSecret}
+            NEXTAUTH_URL=https://${AppDomain}
+            OCR_WEBHOOK_SECRET=
+            ENVEOF
+
+            # 6. Build and start
+            log "[6/7] Building and starting services..."
+            /usr/local/bin/docker-compose up --build -d
+
+            # 7. Wait for app
+            log "[7/7] Waiting for application to respond..."
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost/api/setup > /dev/null 2>&1; then
+                log "Application is responding!"
+                break
+              fi
+              log "  Attempt ${!i}/30 — waiting 10s..."
+              sleep 10
+            done
+
+            log "=== Bootstrap complete ==="
+            log "App: https://${AppDomain}"
+            log "Note: HTTPS requires DNS propagation + cert issuance (~2 min after DNS)"
+          - BucketName: !Sub "kyc-kyb-docs-${AWS::AccountId}"
+
+Outputs:
+
+  PublicIP:
+    Description: "IP público — aponte o registro A do domínio para este endereço"
+    Value: !GetAtt AppInstance.PublicIp
+
+  S3BucketName:
+    Description: "Bucket S3 para documentos"
+    Value: !Ref DocumentsBucket
+
+  SSHCommand:
+    Description: "Comando SSH"
+    Value: !Sub "ssh -i ${KeyPairName}.pem ec2-user@${AppInstance.PublicIp}"
+
+  BootstrapLog:
+    Description: "Ver log de bootstrap"
+    Value: "sudo tail -f /var/log/kyc-kyb-bootstrap.log"

@@ -1,0 +1,120 @@
+version: "3.9"
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  certbot_certs:    # /etc/letsencrypt — shared between nginx and certbot
+  certbot_webroot:  # ACME webroot challenge files
+  nginx_conf:       # shared nginx conf.d — certbot writes SSL config here
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - internal
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-kyc_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kyc_password}
+      POSTGRES_DB:       ${POSTGRES_DB:-kyc_kyb_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kyc_user} -d ${POSTGRES_DB:-kyc_kyb_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Next.js application ──────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - internal
+    expose:
+      - "3000"
+    environment:
+      DATABASE_URL:          postgresql://${POSTGRES_USER:-kyc_user}:${POSTGRES_PASSWORD:-kyc_password}@db:5432/${POSTGRES_DB:-kyc_kyb_db}
+      AWS_REGION:            ${AWS_REGION:-us-east-1}
+      S3_BUCKET_NAME:        ${S3_BUCKET_NAME:-}
+      NEXTAUTH_SECRET:       ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL:          ${NEXTAUTH_URL:-http://localhost:3000}
+      # Leave empty when using IAM Role (automated EC2 deploy)
+      AWS_ACCESS_KEY_ID:     ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Nginx reverse proxy ──────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    networks:
+      - internal
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # HTTP-only config template (active at startup, before cert is issued)
+      - ./nginx/nginx.conf:/etc/nginx/templates/default.conf.template:ro
+      # SSL config template (certbot writes the rendered version to nginx_conf)
+      - ./nginx/nginx-ssl.conf:/etc/nginx/ssl-template/nginx-ssl.conf:ro
+      # Shared conf dir — certbot writes the active config here
+      - nginx_conf:/etc/nginx/conf.d
+      # Certbot volumes
+      - certbot_certs:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    depends_on:
+      - app
+    # Start with HTTP-only config.
+    # Every 6h, reload nginx so it picks up the SSL config written by certbot.
+    command: >
+      /bin/sh -c "
+        envsubst '$$DOMAIN' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf &&
+        nginx -g 'daemon off;' &
+        NGINX_PID=$$!
+        while sleep 6h; do
+          nginx -s reload 2>/dev/null || true
+        done &
+        wait $$NGINX_PID
+      "
+
+  # ── Certbot — certificate issuance + renewal ─────────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+      - nginx_conf:/etc/nginx/conf.d
+      - ./nginx/nginx-ssl.conf:/etc/nginx/ssl-template/nginx-ssl.conf:ro
+      - ./nginx/init-certbot.sh:/init-certbot.sh:ro
+    environment:
+      DOMAIN:        ${DOMAIN:-localhost}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:-}
+    # Issue cert on first run, then renew every 12h
+    entrypoint: >
+      /bin/sh -c "
+        chmod +x /init-certbot.sh &&
+        /init-certbot.sh;
+        trap exit TERM;
+        while :; do
+          certbot renew --webroot --webroot-path=/var/www/certbot --quiet \
+            --deploy-hook 'envsubst \"\$${DOMAIN}\" < /etc/nginx/ssl-template/nginx-ssl.conf > /etc/nginx/conf.d/default.conf';
+          sleep 12h & wait $${!};
+        done
+      "
+    depends_on:
+      - nginx

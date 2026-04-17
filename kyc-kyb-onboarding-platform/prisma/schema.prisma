@@ -1,0 +1,156 @@
+// Prisma schema for KYC/KYB Onboarding Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OnboardingStatus {
+  PENDING
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum DocumentType {
+  CONTRATO_SOCIAL
+  CARTAO_CNPJ
+  RG_FRENTE
+  RG_VERSO
+  CNH_FRENTE
+  CNH_VERSO
+  SELFIE
+  COMPROVANTE_RESIDENCIA
+}
+
+enum OcrStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  role         Role        @default(USER)
+  inviteCodeId String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  inviteCode   InviteCode? @relation("UserInviteCode", fields: [inviteCodeId], references: [id])
+  company      Company?
+
+  @@map("users")
+}
+
+model Company {
+  id                        String           @id @default(cuid())
+  userId                    String           @unique
+  cnpj                      String           @unique
+  razaoSocial               String
+  nomeFantasia              String
+  logradouro                String
+  numero                    String
+  complemento               String?
+  bairro                    String
+  cidade                    String
+  estado                    String
+  cep                       String
+  faturamentoMensalEstimado Float
+  onboardingStatus          OnboardingStatus @default(PENDING)
+  reviewedByAdminId         String?
+  reviewedAt                DateTime?
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id])
+  partners  Partner[]
+  documents Document[]
+
+  @@map("companies")
+}
+
+model Partner {
+  id             String   @id @default(cuid())
+  companyId      String
+  nomeCompleto   String
+  cpf            String
+  dataNascimento DateTime
+  cargo          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  documents Document[]
+
+  @@map("partners")
+}
+
+model Document {
+  id                String       @id @default(cuid())
+  companyId         String?
+  partnerId         String?
+  documentType      DocumentType
+  s3Key             String
+  mimeType          String
+  ocrStatus         OcrStatus    @default(PENDING)
+  ocrRawText        String?
+  ocrStructuredData Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id])
+  partner Partner? @relation(fields: [partnerId], references: [id])
+
+  @@map("documents")
+}
+
+model InviteCode {
+  id               String    @id @default(cuid())
+  code             String    @unique
+  email            String?
+  isUsed           Boolean   @default(false)
+  usedByUserId     String?
+  createdByAdminId String
+  createdAt        DateTime  @default(now())
+  usedAt           DateTime?
+
+  users User[] @relation("UserInviteCode")
+
+  @@map("invite_codes")
+}
+
+model ThemeConfig {
+  id              String   @id @default(cuid())
+  tenantId        String
+  colorPrimary    String
+  colorSecondary  String
+  colorBackground String
+  colorText       String
+  logoUrl         String?
+  faviconUrl      String?
+  appName         String
+  heroTitle       String?
+  heroSubtitle    String?
+  heroCtaText     String?
+  isActive        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("theme_configs")
+}
