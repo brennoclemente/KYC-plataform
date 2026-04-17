@@ -16,7 +16,13 @@ export default async function HomePage() {
     const repository = new PrismaThemeConfigRepository();
     const useCase = new GetThemeConfigUseCase(repository);
     const t = await useCase.execute();
-    theme = { ...theme, ...t };
+    theme = {
+      appName: t.appName,
+      logoUrl: t.logoUrl,
+      heroTitle: t.heroTitle ?? theme.heroTitle,
+      heroSubtitle: t.heroSubtitle ?? theme.heroSubtitle,
+      heroCtaText: t.heroCtaText ?? theme.heroCtaText,
+    };
   } catch {
     // use defaults
   }
