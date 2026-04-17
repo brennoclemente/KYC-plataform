@@ -83,7 +83,7 @@ export default function KYBForm({ onSuccess }: KYBFormProps) {
 
       if (res.ok) {
         const data = await res.json();
-        onSuccess(data.companyId);
+        onSuccess(data.id);
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? 'Erro ao enviar os dados. Tente novamente.');
