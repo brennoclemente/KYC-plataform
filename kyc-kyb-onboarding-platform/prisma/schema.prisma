@@ -4,7 +4,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// NOTE: datasource is configured in prisma.config.ts
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
