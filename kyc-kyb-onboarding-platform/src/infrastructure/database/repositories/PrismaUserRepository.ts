@@ -1,5 +1,5 @@
 import { User } from '../../../domain/entities/User';
-import { CreateUserData, IUserRepository } from '../../../domain/repositories/IUserRepository';
+import { CreateUserData, UpdateUserData, IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { prisma } from '../prisma-client';
 
 export class PrismaUserRepository implements IUserRepository {
@@ -23,6 +23,20 @@ export class PrismaUserRepository implements IUserRepository {
   async findByEmail(email: string): Promise<User | null> {
     const user = await prisma.user.findUnique({ where: { email } });
     return user as User | null;
+  }
+
+  async listAll(): Promise<User[]> {
+    const users = await prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
+    return users as User[];
+  }
+
+  async update(id: string, data: UpdateUserData): Promise<User> {
+    const user = await prisma.user.update({ where: { id }, data });
+    return user as User;
+  }
+
+  async delete(id: string): Promise<void> {
+    await prisma.user.delete({ where: { id } });
   }
 
   async count(): Promise<number> {
