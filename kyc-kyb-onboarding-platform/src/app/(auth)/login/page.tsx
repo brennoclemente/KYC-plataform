@@ -36,7 +36,8 @@ function LoginForm() {
       if (session?.user?.role === 'ADMIN') {
         router.push('/admin');
       } else {
-        router.push('/onboarding/invite');
+        // USER goes directly to KYB — invite was already validated during registration
+        router.push('/onboarding/kyb');
       }
     } else {
       setError('E-mail ou senha incorretos. Tente novamente.');

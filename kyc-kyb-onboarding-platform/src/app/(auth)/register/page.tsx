@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -44,8 +45,15 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, inviteCode }),
       });
-      if (res.ok) { router.push('/login'); }
-      else {
+      if (res.ok) {
+        // Auto-login and go directly to onboarding
+        const loginResult = await signIn('credentials', { email, password, redirect: false });
+        if (loginResult?.ok) {
+          router.push('/onboarding/kyb');
+        } else {
+          router.push('/login');
+        }
+      } else {
         const data = await res.json().catch(() => ({}));
         setRegisterError(data.error ?? 'Erro ao criar conta. Tente novamente.');
       }
