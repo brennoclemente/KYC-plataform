@@ -93,7 +93,7 @@ describe('PrismaCompanyRepository', () => {
 
       const result = await repo.listAll();
 
-      expect(prisma.company.findMany).toHaveBeenCalledWith({ where: undefined });
+      expect(prisma.company.findMany).toHaveBeenCalledWith({ where: undefined, orderBy: { createdAt: 'desc' } });
       expect(result).toEqual([mockCompany]);
     });
 
@@ -104,6 +104,7 @@ describe('PrismaCompanyRepository', () => {
 
       expect(prisma.company.findMany).toHaveBeenCalledWith({
         where: { onboardingStatus: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
       });
       expect(result).toEqual([mockCompany]);
     });

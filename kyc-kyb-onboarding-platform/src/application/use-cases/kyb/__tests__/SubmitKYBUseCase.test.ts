@@ -82,8 +82,10 @@ describe('SubmitKYBUseCase', () => {
     companyRepository = {
       create: vi.fn().mockResolvedValue(makeCompany()),
       findById: vi.fn(),
+      findByUserId: vi.fn(),
       listAll: vi.fn(),
       updateStatus: vi.fn(),
+      delete: vi.fn(),
     };
     documentRepository = {
       create: vi.fn()

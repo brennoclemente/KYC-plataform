@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaDocumentRepository } from '../../../../infrastructure/database/repositories/PrismaDocumentRepository';
-import { ProcessOCRResultUseCase } from '../../../../application/use-cases/ocr/ProcessOCRResultUseCase';
 import { TextractOCRService } from '../../../../infrastructure/ocr/TextractOCRService';
-import { TextractJobResult } from '../../../../infrastructure/ocr/TextractOCRService';
 
+// This endpoint can be used to manually trigger OCR re-processing for a document.
+// POST body: { documentId: string }
 export async function POST(request: NextRequest) {
-  // Validate shared secret if configured
   const webhookSecret = process.env.OCR_WEBHOOK_SECRET;
   if (webhookSecret) {
     const providedSecret = request.headers.get('x-webhook-secret');
@@ -14,44 +13,40 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  let body: { documentId?: string; jobId?: string; jobResult?: TextractJobResult };
+  let body: { documentId?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  const { documentId, jobId, jobResult: providedJobResult } = body;
-
+  const { documentId } = body;
   if (!documentId) {
     return NextResponse.json({ error: 'documentId is required.' }, { status: 400 });
   }
 
-  if (!providedJobResult && !jobId) {
-    return NextResponse.json(
-      { error: 'Either jobResult or jobId must be provided.' },
-      { status: 400 },
-    );
-  }
-
   try {
-    let jobResult: TextractJobResult;
+    const documentRepository = new PrismaDocumentRepository();
+    const document = await documentRepository.findById(documentId);
 
-    if (providedJobResult) {
-      jobResult = providedJobResult;
-    } else {
-      const textractService = new TextractOCRService();
-      jobResult = await textractService.getJobResult(jobId!);
+    if (!document) {
+      return NextResponse.json({ error: 'Document not found.' }, { status: 404 });
     }
 
-    const documentRepository = new PrismaDocumentRepository();
-    const processOCRResultUseCase = new ProcessOCRResultUseCase(documentRepository);
+    await documentRepository.updateOcrStatus(documentId, 'PROCESSING');
 
-    await processOCRResultUseCase.execute({ documentId, jobResult });
+    const ocrService = new TextractOCRService();
+    const result = await ocrService.analyzeDocument(document.s3Key);
+
+    await documentRepository.updateOcrResult(documentId, {
+      ocrStatus: 'COMPLETED',
+      ocrRawText: result.ocrRawText,
+      ocrStructuredData: result.ocrStructuredData,
+    });
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('OCR webhook error:', error);
+    console.error('OCR processing error:', error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

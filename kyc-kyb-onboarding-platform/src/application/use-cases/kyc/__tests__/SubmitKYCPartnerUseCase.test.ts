@@ -107,8 +107,10 @@ describe('SubmitKYCPartnerUseCase', () => {
     companyRepository = {
       create: vi.fn(),
       findById: vi.fn(),
+      findByUserId: vi.fn(),
       listAll: vi.fn(),
       updateStatus: vi.fn().mockResolvedValue(makeCompany()),
+      delete: vi.fn(),
     };
 
     useCase = new SubmitKYCPartnerUseCase(

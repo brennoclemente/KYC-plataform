@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProcessOCRResultUseCase } from '../ProcessOCRResultUseCase';
 import { IDocumentRepository } from '../../../../domain/repositories/IDocumentRepository';
-import { TextractJobResult } from '../../../../infrastructure/ocr/TextractOCRService';
+import { OcrJobResult } from '../ProcessOCRResultUseCase';
 
 function makeRepo(): IDocumentRepository {
   return {
@@ -55,7 +55,7 @@ describe('ProcessOCRResultUseCase', () => {
 
   it('marks field as lowConfidence: true when confidence < 0.80', async () => {
     const blocks = makeKeyValueBlocks('Nome', 'João', 0.75);
-    const jobResult: TextractJobResult = { status: 'SUCCEEDED', blocks: blocks as never };
+    const jobResult: OcrJobResult = { status: 'SUCCEEDED', blocks: blocks as never };
 
     await useCase.execute({ documentId: 'doc-1', jobResult });
 
@@ -69,7 +69,7 @@ describe('ProcessOCRResultUseCase', () => {
 
   it('marks field as lowConfidence: false when confidence >= 0.80', async () => {
     const blocks = makeKeyValueBlocks('CPF', '123.456.789-00', 0.95);
-    const jobResult: TextractJobResult = { status: 'SUCCEEDED', blocks: blocks as never };
+    const jobResult: OcrJobResult = { status: 'SUCCEEDED', blocks: blocks as never };
 
     await useCase.execute({ documentId: 'doc-2', jobResult });
 
@@ -83,7 +83,7 @@ describe('ProcessOCRResultUseCase', () => {
 
   it('marks field as lowConfidence: false when confidence is exactly 0.80', async () => {
     const blocks = makeKeyValueBlocks('RG', '12.345.678-9', 0.80);
-    const jobResult: TextractJobResult = { status: 'SUCCEEDED', blocks: blocks as never };
+    const jobResult: OcrJobResult = { status: 'SUCCEEDED', blocks: blocks as never };
 
     await useCase.execute({ documentId: 'doc-3', jobResult });
 
@@ -95,7 +95,7 @@ describe('ProcessOCRResultUseCase', () => {
   });
 
   it('persists FAILED ocrStatus when job status is FAILED', async () => {
-    const jobResult: TextractJobResult = { status: 'FAILED', statusMessage: 'Unsupported document' };
+    const jobResult: OcrJobResult = { status: 'FAILED', statusMessage: 'Unsupported document' };
 
     await useCase.execute({ documentId: 'doc-4', jobResult });
 
@@ -109,7 +109,7 @@ describe('ProcessOCRResultUseCase', () => {
   it('persists COMPLETED ocrStatus with extracted data when job status is SUCCEEDED', async () => {
     const lineBlock = { Id: 'line-1', BlockType: 'LINE', Text: 'Linha de texto extraída' };
     const blocks = [...makeKeyValueBlocks('Campo', 'Valor', 0.90), lineBlock];
-    const jobResult: TextractJobResult = { status: 'SUCCEEDED', blocks: blocks as never };
+    const jobResult: OcrJobResult = { status: 'SUCCEEDED', blocks: blocks as never };
 
     await useCase.execute({ documentId: 'doc-5', jobResult });
 
@@ -123,7 +123,7 @@ describe('ProcessOCRResultUseCase', () => {
   });
 
   it('does nothing when job status is IN_PROGRESS', async () => {
-    const jobResult: TextractJobResult = { status: 'IN_PROGRESS' };
+    const jobResult: OcrJobResult = { status: 'IN_PROGRESS' };
 
     await useCase.execute({ documentId: 'doc-6', jobResult });
 

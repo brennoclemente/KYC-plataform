@@ -28,8 +28,10 @@ const makeCompany = (overrides: Partial<Company> = {}): Company => ({
 const makeRepository = (): ICompanyRepository => ({
   create: vi.fn(),
   findById: vi.fn(),
+  findByUserId: vi.fn(),
   listAll: vi.fn(),
   updateStatus: vi.fn(),
+  delete: vi.fn(),
 });
 
 describe('ListCompaniesUseCase', () => {

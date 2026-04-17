@@ -8,6 +8,7 @@ function makeRepo(overrides: Partial<IInviteCodeRepository> = {}): IInviteCodeRe
     findByCode: vi.fn(),
     create: vi.fn(),
     markAsUsed: vi.fn(),
+    reactivate: vi.fn(),
     listAll: vi.fn(),
     ...overrides,
   };
