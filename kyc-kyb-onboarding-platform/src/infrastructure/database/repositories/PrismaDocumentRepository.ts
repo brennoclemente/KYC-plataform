@@ -58,7 +58,7 @@ export class PrismaDocumentRepository implements IDocumentRepository {
       where: { id },
       data: {
         ocrRawText: result.ocrRawText,
-        ocrStructuredData: result.ocrStructuredData,
+        ocrStructuredData: result.ocrStructuredData as object ?? undefined,
         ocrStatus: result.ocrStatus,
       },
     });
