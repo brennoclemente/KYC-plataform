@@ -99,6 +99,8 @@ Resources:
                 Action:
                   - textract:StartDocumentAnalysis
                   - textract:GetDocumentAnalysis
+                  - textract:DetectDocumentText
+                  - textract:AnalyzeDocument
                 Resource: "*"
       Tags:
         - Key: Project
