@@ -176,12 +176,21 @@ Resources:
             systemctl enable --now docker
             usermod -aG docker ec2-user
 
-            # 3. Docker Compose v2
-            log "[3/7] Installing Docker Compose..."
+            # 3. Docker Compose v2 plugin + buildx
+            log "[3/7] Installing Docker Compose v2 plugin and buildx..."
+            # Install compose plugin
+            mkdir -p /usr/local/lib/docker/cli-plugins
             COMPOSE_VER=$(curl -fsSL https://api.github.com/repos/docker/compose/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
             curl -fsSL "https://github.com/docker/compose/releases/download/${!COMPOSE_VER}/docker-compose-linux-x86_64" \
-              -o /usr/local/bin/docker-compose
-            chmod +x /usr/local/bin/docker-compose
+              -o /usr/local/lib/docker/cli-plugins/docker-compose
+            chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+            # Install buildx plugin
+            BUILDX_VER=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+            curl -fsSL "https://github.com/docker/buildx/releases/download/${!BUILDX_VER}/buildx-${!BUILDX_VER}.linux-amd64" \
+              -o /usr/local/lib/docker/cli-plugins/docker-buildx
+            chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+            # Symlink for backward compat
+            ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
 
             # 4. Clone repo
             log "[4/7] Cloning repository..."
