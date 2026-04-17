@@ -7,7 +7,7 @@ import { IStorageService } from '../../../domain/services/IStorageService';
 import { KYBSubmitDTO } from '../../dtos/KYBSubmitDTO';
 
 export interface IOCRService {
-  startDocumentAnalysis(s3Key: string): Promise<string>;
+  analyzeDocument(s3Key: string): Promise<{ ocrRawText: string; ocrStructuredData: Record<string, { value: string; confidence: number; lowConfidence: boolean }> }>;
 }
 
 export class SubmitKYBUseCase {
@@ -59,7 +59,19 @@ export class SubmitKYBUseCase {
 
       if (this.ocrService) {
         await this.documentRepository.updateOcrStatus(document.id, 'PROCESSING');
-        this.ocrService.startDocumentAnalysis(document.s3Key).catch(console.error);
+        // Run OCR synchronously in background — don't block the response
+        this.ocrService.analyzeDocument(document.s3Key)
+          .then((result) =>
+            this.documentRepository.updateOcrResult(document.id, {
+              ocrStatus: 'COMPLETED',
+              ocrRawText: result.ocrRawText,
+              ocrStructuredData: result.ocrStructuredData,
+            })
+          )
+          .catch((err) => {
+            console.error('OCR failed for document', document.id, err);
+            this.documentRepository.updateOcrStatus(document.id, 'FAILED').catch(console.error);
+          });
       }
 
       documents.push(document);

@@ -5,6 +5,7 @@ import { CNPJValidator } from '../../../../infrastructure/validators/CNPJValidat
 import { S3StorageService } from '../../../../infrastructure/storage/S3StorageService';
 import { PrismaCompanyRepository } from '../../../../infrastructure/database/repositories/PrismaCompanyRepository';
 import { PrismaDocumentRepository } from '../../../../infrastructure/database/repositories/PrismaDocumentRepository';
+import { TextractOCRService } from '../../../../infrastructure/ocr/TextractOCRService';
 import { SubmitKYBUseCase } from '../../../../application/use-cases/kyb/SubmitKYBUseCase';
 
 export async function POST(request: NextRequest) {
@@ -52,12 +53,14 @@ export async function POST(request: NextRequest) {
     const storageService = new S3StorageService();
     const companyRepository = new PrismaCompanyRepository();
     const documentRepository = new PrismaDocumentRepository();
+    const ocrService = new TextractOCRService();
 
     const submitKYBUseCase = new SubmitKYBUseCase(
       cnpjValidator,
       storageService,
       companyRepository,
       documentRepository,
+      ocrService,
     );
 
     const { company } = await submitKYBUseCase.execute({

@@ -1,15 +1,16 @@
 import {
   TextractClient,
-  StartDocumentAnalysisCommand,
-  GetDocumentAnalysisCommand,
+  DetectDocumentTextCommand,
   Block,
 } from '@aws-sdk/client-textract';
+import { OcrField } from '../../domain/entities/Document';
 
-export interface TextractJobResult {
-  status: 'SUCCEEDED' | 'FAILED' | 'IN_PROGRESS';
-  blocks?: Block[];
-  statusMessage?: string;
+export interface TextractSyncResult {
+  ocrRawText: string;
+  ocrStructuredData: Record<string, OcrField>;
 }
+
+const LOW_CONFIDENCE_THRESHOLD = 0.80;
 
 export class TextractOCRService {
   private readonly client: TextractClient;
@@ -28,50 +29,45 @@ export class TextractOCRService {
     this.bucket = process.env.S3_BUCKET_NAME!;
   }
 
-  async startDocumentAnalysis(s3Key: string): Promise<string> {
-    const command = new StartDocumentAnalysisCommand({
-      DocumentLocation: {
+  /**
+   * Synchronous OCR — processes the document immediately and returns results.
+   * Uses DetectDocumentText which works for PDFs and images stored in S3.
+   */
+  async analyzeDocument(s3Key: string): Promise<TextractSyncResult> {
+    const command = new DetectDocumentTextCommand({
+      Document: {
         S3Object: {
           Bucket: this.bucket,
           Name: s3Key,
         },
       },
-      FeatureTypes: ['FORMS', 'TABLES'],
     });
 
     const response = await this.client.send(command);
+    const blocks: Block[] = response.Blocks ?? [];
 
-    if (!response.JobId) {
-      throw new Error('Textract did not return a JobId');
-    }
+    // Extract raw text from LINE blocks
+    const ocrRawText = blocks
+      .filter((b) => b.BlockType === 'LINE' && b.Text)
+      .map((b) => b.Text!)
+      .join('\n');
 
-    return response.JobId;
-  }
+    // Extract key-value pairs from WORD blocks grouped by lines
+    // DetectDocumentText doesn't return KEY_VALUE_SET, so we build
+    // a simple line-based structure
+    const ocrStructuredData: Record<string, OcrField> = {};
+    const lines = blocks.filter((b) => b.BlockType === 'LINE' && b.Text);
 
-  async getJobResult(jobId: string): Promise<TextractJobResult> {
-    const command = new GetDocumentAnalysisCommand({ JobId: jobId });
-    const response = await this.client.send(command);
-
-    const jobStatus = response.JobStatus;
-
-    if (jobStatus === 'SUCCEEDED') {
-      return {
-        status: 'SUCCEEDED',
-        blocks: response.Blocks ?? [],
-        statusMessage: response.StatusMessage,
+    lines.forEach((line, index) => {
+      const key = `Linha ${index + 1}`;
+      const confidence = (line.Confidence ?? 0) / 100;
+      ocrStructuredData[key] = {
+        value: line.Text ?? '',
+        confidence,
+        lowConfidence: confidence < LOW_CONFIDENCE_THRESHOLD,
       };
-    }
+    });
 
-    if (jobStatus === 'FAILED') {
-      return {
-        status: 'FAILED',
-        statusMessage: response.StatusMessage,
-      };
-    }
-
-    return {
-      status: 'IN_PROGRESS',
-      statusMessage: response.StatusMessage,
-    };
+    return { ocrRawText, ocrStructuredData };
   }
 }

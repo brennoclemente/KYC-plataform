@@ -51,7 +51,18 @@ export class SubmitKYCPartnerUseCase {
 
       if (this.ocrService) {
         await this.documentRepository.updateOcrStatus(document.id, 'PROCESSING');
-        this.ocrService.startDocumentAnalysis(document.s3Key).catch(console.error);
+        this.ocrService.analyzeDocument(document.s3Key)
+          .then((result) =>
+            this.documentRepository.updateOcrResult(document.id, {
+              ocrStatus: 'COMPLETED',
+              ocrRawText: result.ocrRawText,
+              ocrStructuredData: result.ocrStructuredData,
+            })
+          )
+          .catch((err) => {
+            console.error('OCR failed for document', document.id, err);
+            this.documentRepository.updateOcrStatus(document.id, 'FAILED').catch(console.error);
+          });
       }
 
       documents.push(document);

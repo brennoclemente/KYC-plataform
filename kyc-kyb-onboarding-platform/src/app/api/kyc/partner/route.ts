@@ -6,6 +6,7 @@ import { S3StorageService } from '../../../../infrastructure/storage/S3StorageSe
 import { PrismaPartnerRepository } from '../../../../infrastructure/database/repositories/PrismaPartnerRepository';
 import { PrismaDocumentRepository } from '../../../../infrastructure/database/repositories/PrismaDocumentRepository';
 import { PrismaCompanyRepository } from '../../../../infrastructure/database/repositories/PrismaCompanyRepository';
+import { TextractOCRService } from '../../../../infrastructure/ocr/TextractOCRService';
 import { SubmitKYCPartnerUseCase } from '../../../../application/use-cases/kyc/SubmitKYCPartnerUseCase';
 import { KYCDocumentInput, KYCDocumentType } from '../../../../application/dtos/KYCPartnerDTO';
 
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
     const partnerRepository = new PrismaPartnerRepository();
     const documentRepository = new PrismaDocumentRepository();
     const companyRepository = new PrismaCompanyRepository();
+    const ocrService = new TextractOCRService();
 
     const submitKYCPartnerUseCase = new SubmitKYCPartnerUseCase(
       cpfValidator,
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
       partnerRepository,
       documentRepository,
       companyRepository,
+      ocrService,
     );
 
     const { partner } = await submitKYCPartnerUseCase.execute({
