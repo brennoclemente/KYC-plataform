@@ -11,7 +11,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client (creates node_modules/.prisma with wasm files)
 RUN npx prisma generate
 
 # Build Next.js (produces .next/standalone)
@@ -29,11 +29,8 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs && \
     adduser  --system --uid 1001 nextjs
 
-# Prisma CLI + client (needed for migrate deploy at startup)
-COPY --from=builder /app/node_modules/.bin/prisma          ./node_modules/.bin/prisma
-COPY --from=builder /app/node_modules/.prisma              ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma              ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma               ./node_modules/prisma
+# Copy entire node_modules from builder (includes all Prisma wasm files)
+COPY --from=builder /app/node_modules ./node_modules
 
 # Prisma schema and migrations
 COPY --from=builder /app/prisma ./prisma
