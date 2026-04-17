@@ -1,6 +1,7 @@
 import {
   TextractClient,
   DetectDocumentTextCommand,
+  AnalyzeDocumentCommand,
   Block,
 } from '@aws-sdk/client-textract';
 import { OcrField } from '../../domain/entities/Document';
@@ -29,32 +30,33 @@ export class TextractOCRService {
     this.bucket = process.env.S3_BUCKET_NAME!;
   }
 
-  /**
-   * Synchronous OCR — processes the document immediately and returns results.
-   * Uses DetectDocumentText which works for PDFs and images stored in S3.
-   */
   async analyzeDocument(s3Key: string): Promise<TextractSyncResult> {
-    const command = new DetectDocumentTextCommand({
-      Document: {
-        S3Object: {
-          Bucket: this.bucket,
-          Name: s3Key,
-        },
-      },
-    });
+    const isPdf = s3Key.toLowerCase().endsWith('.pdf');
 
-    const response = await this.client.send(command);
-    const blocks: Block[] = response.Blocks ?? [];
+    let blocks: Block[] = [];
 
-    // Extract raw text from LINE blocks
+    if (isPdf) {
+      // PDFs must use AnalyzeDocument with S3 source
+      const command = new AnalyzeDocumentCommand({
+        Document: { S3Object: { Bucket: this.bucket, Name: s3Key } },
+        FeatureTypes: ['FORMS'],
+      });
+      const response = await this.client.send(command);
+      blocks = response.Blocks ?? [];
+    } else {
+      // Images use DetectDocumentText
+      const command = new DetectDocumentTextCommand({
+        Document: { S3Object: { Bucket: this.bucket, Name: s3Key } },
+      });
+      const response = await this.client.send(command);
+      blocks = response.Blocks ?? [];
+    }
+
     const ocrRawText = blocks
       .filter((b) => b.BlockType === 'LINE' && b.Text)
       .map((b) => b.Text!)
       .join('\n');
 
-    // Extract key-value pairs from WORD blocks grouped by lines
-    // DetectDocumentText doesn't return KEY_VALUE_SET, so we build
-    // a simple line-based structure
     const ocrStructuredData: Record<string, OcrField> = {};
     const lines = blocks.filter((b) => b.BlockType === 'LINE' && b.Text);
 
