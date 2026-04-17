@@ -36,6 +36,17 @@ export class PrismaUserRepository implements IUserRepository {
   }
 
   async delete(id: string): Promise<void> {
+    // Cascade: delete company (and its partners/documents) before deleting user
+    const company = await prisma.company.findUnique({ where: { userId: id } });
+    if (company) {
+      const partners = await prisma.partner.findMany({ where: { companyId: company.id } });
+      for (const partner of partners) {
+        await prisma.document.deleteMany({ where: { partnerId: partner.id } });
+      }
+      await prisma.document.deleteMany({ where: { companyId: company.id } });
+      await prisma.partner.deleteMany({ where: { companyId: company.id } });
+      await prisma.company.delete({ where: { id: company.id } });
+    }
     await prisma.user.delete({ where: { id } });
   }
 

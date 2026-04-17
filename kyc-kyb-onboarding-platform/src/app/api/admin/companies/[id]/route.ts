@@ -23,21 +23,12 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
-    }
-
-    if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
-    }
+    if (!session) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
 
     const { id } = await params;
-
     const company = await companyRepository.findById(id);
-    if (!company) {
-      return NextResponse.json({ error: 'Empresa não encontrada.' }, { status: 404 });
-    }
+    if (!company) return NextResponse.json({ error: 'Empresa não encontrada.' }, { status: 404 });
 
     const [partners, companyDocs] = await Promise.all([
       partnerRepository.findByCompanyId(id),
@@ -45,7 +36,6 @@ export async function GET(
     ]);
 
     const companyDocuments = await Promise.all(companyDocs.map(attachPresignedUrl));
-
     const partnersWithDocuments = await Promise.all(
       partners.map(async (partner) => {
         const partnerDocs = await documentRepository.findByPartnerId(partner.id);
@@ -54,12 +44,30 @@ export async function GET(
       })
     );
 
-    return NextResponse.json(
-      { company, partners: partnersWithDocuments, companyDocuments },
-      { status: 200 }
-    );
+    return NextResponse.json({ company, partners: partnersWithDocuments, companyDocuments });
   } catch (error) {
     console.error('Get company detail error:', error);
+    return NextResponse.json({ error: 'Erro interno do servidor.' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+
+    const { id } = await params;
+    const company = await companyRepository.findById(id);
+    if (!company) return NextResponse.json({ error: 'Empresa não encontrada.' }, { status: 404 });
+
+    await companyRepository.delete(id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete company error:', error);
     return NextResponse.json({ error: 'Erro interno do servidor.' }, { status: 500 });
   }
 }

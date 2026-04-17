@@ -18,6 +18,8 @@ export interface CreateCompanyData {
 export interface ICompanyRepository {
   create(data: CreateCompanyData): Promise<Company>;
   findById(id: string): Promise<Company | null>;
+  findByUserId(userId: string): Promise<Company | null>;
   listAll(filter?: { status?: OnboardingStatus }): Promise<Company[]>;
   updateStatus(id: string, status: OnboardingStatus, adminId: string): Promise<Company>;
+  delete(id: string): Promise<void>;
 }

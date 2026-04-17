@@ -74,6 +74,7 @@ export default function CompanyDetail({ companyId }: CompanyDetailProps) {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -119,6 +120,22 @@ export default function CompanyDetail({ companyId }: CompanyDetailProps) {
       setActionError(err instanceof Error ? err.message : 'Erro desconhecido.');
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm('Tem certeza que deseja excluir esta empresa? Todos os documentos e sócios serão removidos. Esta ação não pode ser desfeita.')) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/companies/${companyId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error ?? 'Erro ao excluir empresa.');
+        return;
+      }
+      window.location.href = '/admin';
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -186,7 +203,7 @@ export default function CompanyDetail({ companyId }: CompanyDetailProps) {
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-3 pt-2 border-t border-secondary/10">
+        <div className="flex items-center gap-3 pt-2 border-t border-secondary/10 flex-wrap">
           <button
             onClick={() => handleStatusUpdate('APPROVED')}
             disabled={actionLoading || company.onboardingStatus === 'APPROVED'}
@@ -200,6 +217,13 @@ export default function CompanyDetail({ companyId }: CompanyDetailProps) {
             className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Reprovar
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="ml-auto px-4 py-2 bg-gray-100 text-red-600 border border-red-200 text-sm font-medium rounded-md hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {deleting ? 'Excluindo...' : 'Excluir empresa'}
           </button>
           {actionLoading && <span className="text-sm text-secondary">Salvando...</span>}
           {actionError && (
