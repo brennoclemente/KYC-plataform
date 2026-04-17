@@ -8,7 +8,7 @@
   },
   "then": {
     "type": "runCommand",
-    "command": "cd C:\\Kiro && git add -A && git diff --cached --quiet || git commit -m \"chore: auto-commit agent changes — $(date '+%Y-%m-%d %H:%M')\"",
+    "command": "cd C:\\Kiro && git add -A && git diff --cached --quiet || git commit -m \"chore: auto-commit agent changes\"",
     "timeout": 30
   }
 }
