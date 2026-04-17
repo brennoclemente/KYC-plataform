@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Auto Git Commit",
+  "description": "Automatically stages and commits all changes to git after the agent completes a task, using the agent's last message as the commit description",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "cd C:\\Kiro && git add -A && git diff --cached --quiet || git commit -m \"chore: auto-commit agent changes — $(date '+%Y-%m-%d %H:%M')\"",
+    "timeout": 30
+  }
+}
