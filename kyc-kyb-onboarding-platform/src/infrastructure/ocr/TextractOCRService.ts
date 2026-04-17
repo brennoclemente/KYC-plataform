@@ -16,12 +16,14 @@ export class TextractOCRService {
   private readonly bucket: string;
 
   constructor() {
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+
     this.client = new TextractClient({
-      region: process.env.AWS_REGION!,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
+      region: process.env.AWS_REGION ?? 'us-east-1',
+      ...(accessKeyId && secretAccessKey
+        ? { credentials: { accessKeyId, secretAccessKey } }
+        : {}),
     });
     this.bucket = process.env.S3_BUCKET_NAME!;
   }
