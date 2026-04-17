@@ -3,6 +3,10 @@ import Image from "next/image";
 import { PrismaThemeConfigRepository } from "../infrastructure/database/repositories/PrismaThemeConfigRepository";
 import { GetThemeConfigUseCase } from "../application/use-cases/theme/GetThemeConfigUseCase";
 
+// Force dynamic rendering so theme changes appear immediately
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function HomePage() {
   let theme = {
     appName: "KYC/KYB Platform",

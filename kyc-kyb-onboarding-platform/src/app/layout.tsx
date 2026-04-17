@@ -3,6 +3,9 @@ import "./globals.css";
 import { PrismaThemeConfigRepository } from "../infrastructure/database/repositories/PrismaThemeConfigRepository";
 import { GetThemeConfigUseCase } from "../application/use-cases/theme/GetThemeConfigUseCase";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const repository = new PrismaThemeConfigRepository();
