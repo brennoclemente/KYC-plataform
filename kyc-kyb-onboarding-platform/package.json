@@ -12,7 +12,7 @@
     "@aws-sdk/client-s3": "^3.1031.0",
     "@aws-sdk/client-textract": "^3.1031.0",
     "@aws-sdk/s3-request-presigner": "^3.1031.0",
-    "@prisma/client": "^7.7.0",
+    "@prisma/client": "^6.7.0",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
     "next": "16.2.4",
@@ -28,7 +28,7 @@
     "autoprefixer": "^10.5.0",
     "dotenv": "^17.4.2",
     "postcss": "^8.5.10",
-    "prisma": "^7.7.0",
+    "prisma": "^6.7.0",
     "tailwindcss": "^3.4.19",
     "typescript": "^5",
     "vitest": "^4.1.4"
