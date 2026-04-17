@@ -114,7 +114,7 @@ Resources:
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "KYC/KYB — SSH, HTTP, HTTPS"
+      GroupDescription: "KYC/KYB Platform - SSH HTTP HTTPS"
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
