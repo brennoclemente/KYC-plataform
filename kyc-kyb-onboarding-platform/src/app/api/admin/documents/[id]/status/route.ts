@@ -16,20 +16,27 @@ export async function PATCH(
   const { status, rejectionReason } = body as { status?: string; rejectionReason?: string };
 
   if (!status || !['APPROVED', 'REJECTED', 'PENDING'].includes(status)) {
-    return NextResponse.json({ error: 'Status inválido. Use APPROVED, REJECTED ou PENDING.' }, { status: 400 });
+    return NextResponse.json({ error: 'Status inválido.' }, { status: 400 });
   }
 
   if (status === 'REJECTED' && !rejectionReason?.trim()) {
     return NextResponse.json({ error: 'Motivo da reprovação é obrigatório.' }, { status: 400 });
   }
 
-  const doc = await prisma.document.update({
-    where: { id },
-    data: {
-      documentStatus: status,
-      rejectionReason: status === 'REJECTED' ? rejectionReason : null,
-    },
-  });
+  try {
+    // Use raw SQL to avoid Prisma client cache issues with new columns
+    await prisma.$executeRaw`
+      UPDATE documents
+      SET "documentStatus" = ${status},
+          "rejectionReason" = ${status === 'REJECTED' ? rejectionReason ?? null : null},
+          "updatedAt" = NOW()
+      WHERE id = ${id}
+    `;
 
-  return NextResponse.json(doc);
+    const doc = await prisma.document.findUnique({ where: { id } });
+    return NextResponse.json(doc);
+  } catch (error) {
+    console.error('Document status update error:', error);
+    return NextResponse.json({ error: 'Erro interno do servidor.' }, { status: 500 });
+  }
 }
