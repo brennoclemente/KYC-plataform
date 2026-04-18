@@ -1,0 +1,2 @@
+ALTER TABLE "documents" ADD COLUMN IF NOT EXISTS "documentStatus" TEXT NOT NULL DEFAULT 'PENDING';
+ALTER TABLE "documents" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT;
