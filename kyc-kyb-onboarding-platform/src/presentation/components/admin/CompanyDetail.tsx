@@ -146,12 +146,30 @@ export default function CompanyDetail({ companyId }: CompanyDetailProps) {
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         alert(d.error ?? 'Erro ao atualizar documento.');
+        setDocAction(docId, { loading: false });
         return;
       }
+
+      // Update local state immediately without full reload
+      const rejectionReason = status === 'REJECTED' ? action.rejectionReason : null;
+      setData(prev => {
+        if (!prev) return prev;
+        const updateDoc = (doc: DocumentData) =>
+          doc.id === docId ? { ...doc, documentStatus: status, rejectionReason } : doc;
+        return {
+          ...prev,
+          companyDocuments: prev.companyDocuments.map(updateDoc),
+          partners: prev.partners.map(p => ({
+            ...p,
+            documents: p.documents.map(updateDoc),
+          })),
+        };
+      });
+
       setDocAction(docId, { loading: false, showRejectInput: false, rejectionReason: '' });
-      fetchData();
     } catch {
       setDocAction(docId, { loading: false });
+      alert('Erro de conexão. Tente novamente.');
     }
   }
 
