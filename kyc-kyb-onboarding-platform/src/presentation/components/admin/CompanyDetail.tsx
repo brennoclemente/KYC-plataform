@@ -9,6 +9,7 @@ interface DocumentData {
   id: string;
   documentType: string;
   presignedUrl: string;
+  mimeType: string;
   documentStatus: string;
   rejectionReason: string | null;
 }
