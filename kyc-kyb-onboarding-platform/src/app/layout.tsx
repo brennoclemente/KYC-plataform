@@ -14,7 +14,13 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
       title: theme.appName,
       description: theme.heroSubtitle ?? "Plataforma de Onboarding KYC/KYB",
-      icons: theme.faviconUrl ? { icon: theme.faviconUrl } : undefined,
+      icons: theme.faviconUrl
+        ? {
+            icon: [{ url: theme.faviconUrl }],
+            shortcut: [{ url: theme.faviconUrl }],
+            apple: [{ url: theme.faviconUrl }],
+          }
+        : undefined,
     };
   } catch {
     return {
