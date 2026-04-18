@@ -53,15 +53,7 @@ export default async function HomePage() {
             <div className="space-y-8">
 
               {/* Logo grande integrado ao hero */}
-              {theme.logoUrl ? (
-                <Image
-                  src={theme.logoUrl}
-                  alt={theme.appName}
-                  width={280}
-                  height={80}
-                  className="h-20 w-auto object-contain"
-                />
-              ) : (
+              {!theme.logoUrl && (
                 <div className="inline-flex items-center gap-3">
                   <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center shadow-md">
                     <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -108,29 +100,21 @@ export default async function HomePage() {
               </div>
             </div>
 
-            {/* Right — card de passos */}
+            {/* Right — logo grande */}
             <div className="hidden lg:flex items-center justify-center">
-              <div className="relative w-full max-w-md">
-                <div className="absolute inset-0 bg-primary/5 rounded-3xl transform rotate-3" />
-                <div className="relative bg-white rounded-2xl shadow-lg p-8 space-y-6 border border-gray-100">
-                  {[
-                    { step: '01', title: 'Código de convite', desc: 'Receba seu código exclusivo de acesso' },
-                    { step: '02', title: 'Dados da empresa', desc: 'Preencha as informações empresariais e envie documentos' },
-                    { step: '03', title: 'Dados dos sócios', desc: 'Cadastre os representantes legais' },
-                    { step: '04', title: 'Análise e aprovação', desc: 'Nossa equipe revisa e aprova em até 24h' },
-                  ].map((item) => (
-                    <div key={item.step} className="flex items-start gap-4">
-                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-primary">{item.step}</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-text">{item.title}</p>
-                        <p className="text-xs text-secondary mt-0.5">{item.desc}</p>
-                      </div>
-                    </div>
-                  ))}
+              {theme.logoUrl ? (
+                <Image
+                  src={theme.logoUrl}
+                  alt={theme.appName}
+                  width={480}
+                  height={480}
+                  className="w-full max-w-sm h-auto object-contain drop-shadow-xl"
+                />
+              ) : (
+                <div className="w-64 h-64 rounded-3xl bg-primary/10 flex items-center justify-center">
+                  <span className="text-6xl font-black text-primary">{theme.appName.charAt(0)}</span>
                 </div>
-              </div>
+              )}
             </div>
 
           </div>
